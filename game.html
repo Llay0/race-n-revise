@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Race 'N Revise</title>
+  <link href="common.css" rel="stylesheet" type="text/css" />
+  <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body>
+  <!-- Start Menu -->
+  <div x-data="racer()">
+    <div class="grid grid-cols-1 grid-rows-4 gap-5 h-screen w-1/4 m-auto justify-center" x-show="status=='menu'">
+      <button @click="status='start'"
+        class="bg-orange-600 text-center flex items-center justify-center text-4xl rounded shadow">Play</button>
+      <button @click="stats()" class="bg-orange-600 text-center flex items-center justify-center text-4xl rounded shadow">Statistics</button>
+      <button @click="settings()"
+        class="bg-orange-600 text-center flex items-center justify-center text-4xl rounded shadow">Settings</button>
+      <button @click="exit()" class="bg-orange-600 text-center flex items-center justify-center text-4xl shadow">Exit</button>
+      <div class="bg-blue-300 absolute top-0 right-0 h-48 w-24 items-center justify-center text-center flex rounded-bl-lg text-xl">Controls: WASD
+        Select: Q
+      </div>
+    </div>
+    <!-- Start Menu -->
+    <!-- Play Area -->
+    <div x-show="status=='start' || status=='play'">
+      <div class="grid grid-rows-14 grid-cols-1 h-screen">
+        <div class="grid grid-rows-5 bg-red-400 row-span-2">
+          <div class="text-center items-center justify-center flex text-6xl row-span-5" x-text="question"></div>
+          <div class="bg-purple-400" id="progressBar"></div>
+        </div>
+        
+        <div class="row-span-5 m-auto justify-center">
+            <div id="racer">
+                <div id="hud">
+                  <span id="speed"            class="hud"><span id="speed_value" class="value">0</span> mph</span>
+                  <span id="current_lap_time" class="hud">Time: <span id="current_lap_time_value" class="value" @lapstart="lapStart($event)" @lapend="lapEnd($event)">0.0</span></span>
+                  <span id="current_score"  class="hud">Score: <span id="current_score_value" class="value" x-text="score" >0.0</span></span> 
+                  <span id="last_lap_time"    class="hud">Last Lap: <span id="last_lap_time_value" class="value">0.0</span></span>
+                  <span id="fast_lap_time"    class="hud">Fastest Lap: <span id="fast_lap_time_value" class="value">0.0</span></span>
+                  <span id="current_lane"    class="hud">Current Lane: <span id="current_lane_value" class="value" @lanechange="currentLane = $event.target.innerText" @selectanswer="displayAnswer($event.target.innerText)" >000</span></span>
+                </div>
+                <canvas id="canvas">
+                </canvas>
+              </div>
+        </div>
+        <div class="row-span-5 bg-red-100" >
+            <div class="row-span-2 bg-red-300 grid grid-cols-4 gap-4">
+                <div @click="displayAnswer(0)" 
+                :class="currentLane == 0 ? 'bg-red-400' : 'bg-blue-200'"
+                class="text-center items-center justify-center flex text-4xl" 
+                x-text="answers[0].roots"></div>
+                <div @click="displayAnswer(1)" 
+                 :class="currentLane == 1 ? 'bg-red-400' : 'bg-blue-200'"
+                  class="text-center items-center justify-center flex text-4xl"
+                  x-text="answers[1].roots"></div>
+                <div @click="displayAnswer(2)" 
+                :class="currentLane == 2 ? 'bg-red-400' : 'bg-blue-200'"
+                class="text-center items-center justify-center flex text-4xl"
+                  x-text="answers[2].roots"></div>
+                <div @click="displayAnswer(3)" 
+                :class="currentLane == 3 ? 'bg-red-400' : 'bg-blue-200'"
+                class="text-center items-center justify-center flex text-4xl"
+                  x-text="answers[3].roots"></div>
+              </div>
+
+        </div>
+        <button @click="menu()"
+          class="bg-blue-300 absolute top-0 right-0 h-16 w-16 text-center items-center justify-center flex rounded-bl-lg text-xl">Exit</button>
+      </div>
+    </div>
+    <!-- Play Area -->
+     <!-- Stats Menu -->
+     <div x-show="status=='stats'">
+      <div class="grid grid-rows-4 bg-green-300 grid-cols-1 h-screen gap-5">
+        <div class="bg-green-200 w-screen row-span-1 text-6xl text-center items-center justify-center flex">Player Statistics
+        </div>
+        <div class="row-span-3 grid grid-rows-4 w-1/4 mx-auto gap-5">
+          <div
+            class="bg-blue-400 text-center items-center justify-center flex text-4xl rounded" x-text="fastestTimeDisplay"></div>
+          <div class="bg-blue-400 text-center items-center justify-center flex text-4xl rounded" x-text="highScoreDisplay"></div>
+          <div class="bg-blue-400 text-center items-center justify-center flex text-4xl rounded" x-text="totalQs"></div>
+          <button @click="clearStorage()"class="bg-blue-400 text-center items-center justify-center flex text-4xl rounded">Clear Data</button>
+        </div>
+      </div>
+      <button @click="menu()"
+        class="bg-blue-300 absolute top-0 right-0 h-16 w-16 text-center items-center justify-center flex rounded-bl-lg text-xl">Exit</button>
+    </div>
+      <!-- Stats Menu -->
+    <!-- Settings  -->
+    <div x-show="status=='settings'">
+      <div class="grid grid-rows-4 bg-green-300 grid-cols-1 h-screen gap-5">
+        <div class="bg-green-200 w-screen row-span-1 text-6xl text-center items-center justify-center flex">Settings
+        </div>
+        <div class="row-span-3 grid grid-rows-1 w-1/4 m-auto gap-5">
+          <button @click="changeDifficulty()" x-text="difficulty"
+            class="bg-blue-400 text-center items-center justify-center flex text-4xl rounded"></button>
+        </div>
+      </div>
+      <button @click="menu()"
+        class="bg-blue-300 absolute top-0 right-0 h-16 w-16 text-center items-center justify-center flex rounded-bl-lg text-xl">Exit</button>
+    </div>
+    <!-- Settings Menu -->
+    <!-- Exit Area -->
+    <div class="items-center justify-center text-center flex bg-purple-800 w-1/4 h-24 m-auto text-4xl" x-show="status=='exit'">End</div>
+ 
+  <!-- <audio id='bazinga'>
+    <source src="music/bazinga.mp3">
+  </audio>
+  <audio id='question'>
+    <source src="music/question.mp3">
+  </audio>
+  <audio id='yes'>
+    <source src="music/yes2.mp3">
+  </audio>
+  <span id="mute"></span> -->
+  <script src="alpinegame.js"></script>
+  <script src="common.js"></script>
+  <script src="track.js"></script>
+  <script src="game.js"></script>
+
+</body>
+
+</html>

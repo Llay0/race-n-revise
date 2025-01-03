@@ -1,7 +1,4 @@
-//=========================================================================
-// minimalist DOM helpers
-//=========================================================================
-
+// Dom commands
 var Dom = {
 
   get:  function(id)                     { return ((id instanceof HTMLElement) || (id === document)) ? id : document.getElementById(id); },
@@ -29,9 +26,7 @@ var Dom = {
 
 }
 
-//=========================================================================
-// general purpose helpers (mostly math)
-//=========================================================================
+// Utilities
 
 var Util = {
 
@@ -49,7 +44,7 @@ var Util = {
   easeInOut:        function(a,b,percent)       { return a + (b-a)*((-Math.cos(percent*Math.PI)/2) + 0.5);        },
   exponentialFog:   function(distance, density) { return 1 / (Math.pow(Math.E, (distance * distance * density))); },
 
-  increase:  function(start, increment, max) { // with looping
+  increase:  function(start, increment, max) { 
     var result = start + increment;
     while (result >= max)
       result -= max;
@@ -79,11 +74,9 @@ var Util = {
 
 }
 
-//=========================================================================
-// POLYFILL for requestAnimationFrame
-//=========================================================================
+// Rendering the game loop
 
-if (!window.requestAnimationFrame) { // http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+if (!window.requestAnimationFrame) { 
   window.requestAnimationFrame = window.webkitRequestAnimationFrame || 
                                  window.mozRequestAnimationFrame    || 
                                  window.oRequestAnimationFrame      || 
@@ -93,53 +86,72 @@ if (!window.requestAnimationFrame) { // http://paulirish.com/2011/requestanimati
                                  }
 }
 
-//=========================================================================
-// GAME LOOP helpers
-//=========================================================================
+// Game loop mainframe
 
-const Game = {  
+const Game = { 
+  canvas: null,
+  update: null,
+  render: null,
+  step: null,
 
+  now: null,
+  last: Util.timestamp(),
+  dt:   0,
+  gdt:  0,
+
+  paused: false,
+  animationFrame: undefined,
+  pause: function() {
+    Game.paused = true;
+  },
+  restart: function() {
+    Game.paused = false;
+    now = null;
+    last = Util.timestamp();
+    dt = 0;
+    gdt = 0;
+    Game.animationFrame = requestAnimationFrame(Game.frame, canvas);
+    console.log("Game started");
+  },
+  frame: function() {
+    if (Game.paused) {
+      return;
+    }
+
+    Game.now = Util.timestamp();
+    Game.dt  = Math.min(1, (Game.now - Game.last) / 1000);
+    Game.gdt = Game.gdt + Game.dt;
+    while (Game.gdt > Game.step) {
+      Game.gdt = Game.gdt - Game.step;
+      Game.update(Game.step);
+    }
+    Game.render();
+    Game.last = Game.now;
+    Game.animationFrame = requestAnimationFrame(Game.frame, canvas);
+  },
   run: function(options) {
 
     Game.loadImages(options.images, function(images) {
 
-      options.ready(images); // tell caller to initialize itself because images are loaded and we're ready to rumble
+      options.ready(images); 
 
       Game.setKeyListener(options.keys);
 
-      const canvas = options.canvas,    // canvas render target is provided by caller
-          update = options.update,    // method to update game logic is provided by caller
-          render = options.render,    // method to render the game is provided by caller
-          step   = options.step      // fixed frame step (1/fps) is specified by caller
-      
-      let now    = null,
-          last   = Util.timestamp(),
-          dt     = 0,
-          gdt    = 0;
+      Game.canvas = options.canvas,    
+      Game.update = options.update,    
+      Game.render = options.render,    
+      Game.step   = options.step     
 
-      const frame = () => {
-        now = Util.timestamp();
-        dt  = Math.min(1, (now - last) / 1000); // using requestAnimationFrame have to be able to handle large delta's caused when it 'hibernates' in a background or non-visible tab
-        gdt = gdt + dt;
-        while (gdt > step) {
-          gdt = gdt - step;
-          update(step);
-        }
-        render();
-        last = now;
-        requestAnimationFrame(frame, canvas);
-      }
-      
-      frame(); // lets get this party started
-      
+      Game.frame(); 
+
       Game.playMusic();
 
     });
   },
 
-  //---------------------------------------------------------------------------
+  //Loading sprites
 
-  loadImages: function(names, callback) { // load multiple images and callback when ALL images have loaded
+  loadImages: function(names, callback) { 
     var result = [];
     var count  = names.length;
 
@@ -156,7 +168,6 @@ const Game = {
     }
   },
 
-  //---------------------------------------------------------------------------
 
   setKeyListener: function(keys) {
     var onkey = function(keyCode, mode) {
@@ -176,24 +187,22 @@ const Game = {
   },
 
 
-  playMusic: function() {
-    var music = Dom.get('music');
-    music.loop = true;
-    music.volume = 0.05; // shhhh! annoying music!
-    music.muted = (Dom.storage.muted === "true");
-    music.play();
-    Dom.toggleClassName('mute', 'on', music.muted);
-    Dom.on('mute', 'click', function() {
-      Dom.storage.muted = music.muted = !music.muted;
-      Dom.toggleClassName('mute', 'on', music.muted);
-    });
-  }
+  // playMusic: function() {
+  //   var music = Dom.get('music');
+  //   music.loop = true;
+  //   music.volume = 0.05; 
+  //   music.muted = (Dom.storage.muted === "true");
+  //   music.play();
+  //   Dom.toggleClassName('mute', 'on', music.muted);
+  //   Dom.on('mute', 'click', function() {
+  //     Dom.storage.muted = music.muted = !music.muted;
+  //     Dom.toggleClassName('mute', 'on', music.muted);
+  //   });
+  // }
 
 }
 
-//=========================================================================
-// canvas rendering helpers
-//=========================================================================
+// Canvas rendering 
 
 const Render = {
 
@@ -208,7 +217,6 @@ const Render = {
     ctx.fill();
   },
 
-  //---------------------------------------------------------------------------
 
   segment: function(ctx, width, lanes, x1, y1, w1, x2, y2, w2, fog, color) {
 
@@ -237,7 +245,6 @@ const Render = {
     Render.fog(ctx, 0, y1, width, y2-y1, fog);
   },
 
-  //---------------------------------------------------------------------------
 
   background: function(ctx, background, width, height, layer, rotation, offset) {
 
@@ -262,11 +269,9 @@ const Render = {
       ctx.drawImage(background, layer.x, sourceY, imageW-sourceW, sourceH, destW-1, destY, width-destW, destH);
   },
 
-  //---------------------------------------------------------------------------
 
   sprite: function(ctx, width, height, resolution, roadWidth, sprites, sprite, scale, destX, destY, offsetX, offsetY, clipY) {
 
-                    //  scale for projection AND relative to roadWidth (for tweakUI)
     var destW  = (sprite.w * scale * width/2) * (SPRITES.SCALE * roadWidth);
     var destH  = (sprite.h * scale * width/2) * (SPRITES.SCALE * roadWidth);
 
@@ -279,7 +284,6 @@ const Render = {
 
   },
 
-  //---------------------------------------------------------------------------
 
   player: function(ctx, width, height, resolution, roadWidth, sprites, speedPercent, scale, destX, destY, steer, updown) {
 
@@ -295,7 +299,6 @@ const Render = {
     Render.sprite(ctx, width, height, resolution, roadWidth, sprites, sprite, scale, destX, destY + bounce, -0.5, -1);
   },
 
-  //---------------------------------------------------------------------------
 
   fog: function(ctx, x, y, width, height, fog) {
     if (fog < 1) {
@@ -311,9 +314,7 @@ const Render = {
 
 }
 
-//=============================================================================
-// RACING GAME CONSTANTS
-//=============================================================================
+//Game constants
 
 var KEY = {
   LEFT:  37,
@@ -323,7 +324,8 @@ var KEY = {
   A:     65,
   D:     68,
   S:     83,
-  W:     87
+  W:     87,
+  Q:    81
 };
 
 var COLORS = {
@@ -343,34 +345,7 @@ var BACKGROUND = {
 };
 
 var SPRITES = {
-  PALM_TREE:              { x:    5, y:    5, w:  215, h:  540 },
-  BILLBOARD08:            { x:  230, y:    5, w:  385, h:  265 },
-  TREE1:                  { x:  625, y:    5, w:  360, h:  360 },
-  DEAD_TREE1:             { x:    5, y:  555, w:  135, h:  332 },
-  BILLBOARD09:            { x:  150, y:  555, w:  328, h:  282 },
-  BOULDER3:               { x:  230, y:  280, w:  320, h:  220 },
-  COLUMN:                 { x:  995, y:    5, w:  200, h:  315 },
-  BILLBOARD01:            { x:  625, y:  375, w:  300, h:  170 },
-  BILLBOARD06:            { x:  488, y:  555, w:  298, h:  190 },
-  BILLBOARD05:            { x:    5, y:  897, w:  298, h:  190 },
-  BILLBOARD07:            { x:  313, y:  897, w:  298, h:  190 },
-  BOULDER2:               { x:  621, y:  897, w:  298, h:  140 },
-  TREE2:                  { x: 1205, y:    5, w:  282, h:  295 },
-  BILLBOARD04:            { x: 1205, y:  310, w:  268, h:  170 },
-  DEAD_TREE2:             { x: 1205, y:  490, w:  150, h:  260 },
-  BOULDER1:               { x: 1205, y:  760, w:  168, h:  248 },
-  BUSH1:                  { x:    5, y: 1097, w:  240, h:  155 },
-  CACTUS:                 { x:  929, y:  897, w:  235, h:  118 },
-  BUSH2:                  { x:  255, y: 1097, w:  232, h:  152 },
-  BILLBOARD03:            { x:    5, y: 1262, w:  230, h:  220 },
-  BILLBOARD02:            { x:  245, y: 1262, w:  215, h:  220 },
-  STUMP:                  { x:  995, y:  330, w:  195, h:  140 },
-  SEMI:                   { x: 1365, y:  490, w:  122, h:  144 },
-  TRUCK:                  { x: 1365, y:  644, w:  100, h:   78 },
-  CAR03:                  { x: 1383, y:  760, w:   88, h:   55 },
-  CAR02:                  { x: 1383, y:  825, w:   80, h:   59 },
-  CAR04:                  { x: 1383, y:  894, w:   80, h:   57 },
-  CAR01:                  { x: 1205, y: 1018, w:   80, h:   56 },
+
   PLAYER_UPHILL_LEFT:     { x: 1383, y:  961, w:   80, h:   45 },
   PLAYER_UPHILL_STRAIGHT: { x: 1295, y: 1018, w:   80, h:   45 },
   PLAYER_UPHILL_RIGHT:    { x: 1385, y: 1018, w:   80, h:   45 },
@@ -379,9 +354,4 @@ var SPRITES = {
   PLAYER_RIGHT:           { x:  995, y:  531, w:   80, h:   41 }
 };
 
-SPRITES.SCALE = 0.3 * (1/SPRITES.PLAYER_STRAIGHT.w) // the reference sprite width should be 1/3rd the (half-)roadWidth
-
-SPRITES.BILLBOARDS = [SPRITES.BILLBOARD01, SPRITES.BILLBOARD02, SPRITES.BILLBOARD03, SPRITES.BILLBOARD04, SPRITES.BILLBOARD05, SPRITES.BILLBOARD06, SPRITES.BILLBOARD07, SPRITES.BILLBOARD08, SPRITES.BILLBOARD09];
-SPRITES.PLANTS     = [SPRITES.TREE1, SPRITES.TREE2, SPRITES.DEAD_TREE1, SPRITES.DEAD_TREE2, SPRITES.PALM_TREE, SPRITES.BUSH1, SPRITES.BUSH2, SPRITES.CACTUS, SPRITES.STUMP, SPRITES.BOULDER1, SPRITES.BOULDER2, SPRITES.BOULDER3];
-SPRITES.CARS       = [SPRITES.CAR01, SPRITES.CAR02, SPRITES.CAR03, SPRITES.CAR04, SPRITES.SEMI, SPRITES.TRUCK];
-
+SPRITES.SCALE = 0.3 * (1/SPRITES.PLAYER_STRAIGHT.w)
